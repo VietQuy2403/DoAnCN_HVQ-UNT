@@ -7,7 +7,7 @@ import {
     ScrollView,
     ActivityIndicator,
 } from 'react-native';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS, SIZES, GOALS } from '../constants';
@@ -15,39 +15,6 @@ import { COLORS, SIZES, GOALS } from '../constants';
 export default function SavedMealPlansScreen({ navigation }) {
     const { user } = useAuth();
     const mealPlans = useQuery(api.mealPlans.getMealPlans, user ? { userId: user.userId } : "skip");
-    const activeMealPlanId = useQuery(api.userSettings.getActiveMealPlanId, user ? { userId: user.userId } : "skip");
-    
-    const setActiveMealPlan = useMutation(api.userSettings.setActiveMealPlan);
-    const updateTodayTracking = useMutation(api.dailyTracking.updateTodayTracking);
-
-    const handleSetActive = async (planId) => {
-        if (!user || !mealPlans) return;
-
-        // Set active meal plan
-        await setActiveMealPlan({ 
-            userId: user.userId, 
-            mealPlanId: planId 
-        });
-
-        // Update today's tracking with meals from new active plan
-        const selectedPlan = mealPlans.find(p => p._id === planId);
-        if (selectedPlan && selectedPlan.plan && selectedPlan.plan.days) {
-            // Get today's meals from the selected plan
-            const dayPlan = selectedPlan.plan.days[0]; // Use day 1 for simplicity
-            if (dayPlan && dayPlan.meals) {
-                const meals = dayPlan.meals.map(meal => ({
-                    mealType: meal.type,
-                    foodName: meal.foods ? meal.foods.map(f => f.name).join(', ') : '',
-                    calories: meal.totalCalories || 0,
-                    protein: meal.foods ? meal.foods.reduce((sum, f) => sum + (f.protein || 0), 0) : 0,
-                    carbs: meal.foods ? meal.foods.reduce((sum, f) => sum + (f.carbs || 0), 0) : 0,
-                    fat: meal.foods ? meal.foods.reduce((sum, f) => sum + (f.fat || 0), 0) : 0,
-                }));
-
-                await updateTodayTracking({ userId: user.userId, meals });
-            }
-        }
-    };
 
     if (mealPlans === undefined) {
         return (
@@ -85,51 +52,37 @@ export default function SavedMealPlansScreen({ navigation }) {
             {mealPlans.map((plan) => {
                 const goal = GOALS[plan.goal];
                 const createdDate = new Date(plan.createdAt).toLocaleDateString('vi-VN');
-                const isActive = activeMealPlanId === plan._id;
 
                 return (
-                    <View key={plan._id} style={styles.planCard}>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('MealPlanDetail', { planId: plan._id })}
-                        >
-                            <View style={styles.planHeader}>
-                                <Text style={styles.planIcon}>{goal.icon}</Text>
-                                <View style={styles.planInfo}>
-                                    <Text style={styles.planTitle}>{plan.title}</Text>
-                                    <Text style={styles.planDate}>Tạo ngày: {createdDate}</Text>
-                                </View>
-                                {isActive && (
-                                    <View style={styles.activeBadge}>
-                                        <Text style={styles.activeBadgeText}>🎯 Đang sử dụng</Text>
-                                    </View>
-                                )}
+                    <TouchableOpacity
+                        key={plan._id}
+                        style={styles.planCard}
+                        onPress={() => navigation.navigate('MealPlanDetail', { planId: plan._id })}
+                    >
+                        <View style={styles.planHeader}>
+                            <Text style={styles.planIcon}>{goal.icon}</Text>
+                            <View style={styles.planInfo}>
+                                <Text style={styles.planTitle}>{plan.title}</Text>
+                                <Text style={styles.planDate}>Tạo ngày: {createdDate}</Text>
                             </View>
+                            {plan.isFavorite && <Text style={styles.favoriteIcon}>⭐</Text>}
+                        </View>
 
-                            <View style={styles.planStats}>
-                                <View style={styles.stat}>
-                                    <Text style={styles.statLabel}>Mục tiêu</Text>
-                                    <Text style={styles.statValue}>{goal.label}</Text>
-                                </View>
-                                <View style={styles.stat}>
-                                    <Text style={styles.statLabel}>Calories</Text>
-                                    <Text style={styles.statValue}>{plan.targetCalories} kcal</Text>
-                                </View>
-                                <View style={styles.stat}>
-                                    <Text style={styles.statLabel}>Số ngày</Text>
-                                    <Text style={styles.statValue}>{plan.plan?.days?.length || 7}</Text>
-                                </View>
+                        <View style={styles.planStats}>
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>Mục tiêu</Text>
+                                <Text style={styles.statValue}>{goal.label}</Text>
                             </View>
-                        </TouchableOpacity>
-
-                        {!isActive && (
-                            <TouchableOpacity
-                                style={styles.activateButton}
-                                onPress={() => handleSetActive(plan._id)}
-                            >
-                                <Text style={styles.activateButtonText}>✓ Sử dụng kế hoạch này</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>Calories</Text>
+                                <Text style={styles.statValue}>{plan.targetCalories} kcal</Text>
+                            </View>
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>Số ngày</Text>
+                                <Text style={styles.statValue}>{plan.plan?.days?.length || 7}</Text>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
                 );
             })}
         </ScrollView>
@@ -248,29 +201,5 @@ const styles = StyleSheet.create({
         fontSize: SIZES.body,
         fontWeight: '600',
         color: COLORS.primary,
-    },
-    activeBadge: {
-        backgroundColor: COLORS.success,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: SIZES.borderRadius,
-    },
-    activeBadgeText: {
-        fontSize: SIZES.small,
-        fontWeight: '600',
-        color: COLORS.white,
-    },
-    activateButton: {
-        marginTop: SIZES.margin,
-        backgroundColor: COLORS.primary,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: SIZES.borderRadius,
-        alignItems: 'center',
-    },
-    activateButtonText: {
-        fontSize: SIZES.body,
-        fontWeight: '600',
-        color: COLORS.white,
     },
 });

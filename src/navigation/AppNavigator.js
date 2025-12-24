@@ -125,7 +125,7 @@ export default function AppNavigator() {
     user ? { userId: user.userId } : "skip"
   );
 
-  if (loading) {  
+  if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5' }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
