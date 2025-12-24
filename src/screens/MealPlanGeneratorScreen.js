@@ -21,6 +21,7 @@ export default function MealPlanGeneratorScreen({ navigation }) {
 
     const [selectedGoal, setSelectedGoal] = useState('weight_loss');
     const [selectedBudget, setSelectedBudget] = useState('medium');
+    const [selectedDays, setSelectedDays] = useState(7);
     const [userNotes, setUserNotes] = useState('');
     const [loading, setLoading] = useState(false);
     const [generatedPlan, setGeneratedPlan] = useState(null);
@@ -42,7 +43,7 @@ export default function MealPlanGeneratorScreen({ navigation }) {
                 goal: selectedGoal,
                 budget: selectedBudget,
                 userNotes: userNotes.trim(),
-                days: 7,
+                days: selectedDays,
             });
 
             setGeneratedPlan(result.mealPlan);
@@ -117,6 +118,32 @@ export default function MealPlanGeneratorScreen({ navigation }) {
                         </TouchableOpacity>
                     ))}
                 </View>
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Số ngày</Text>
+                <View style={styles.daysContainer}>
+                    {[1, 2, 3, 4, 5, 6, 7].map((day) => (
+                        <TouchableOpacity
+                            key={day}
+                            style={[
+                                styles.dayButton,
+                                selectedDays === day && styles.dayButtonSelected,
+                            ]}
+                            onPress={() => setSelectedDays(day)}
+                        >
+                            <Text
+                                style={[
+                                    styles.dayText,
+                                    selectedDays === day && styles.dayTextSelected,
+                                ]}
+                            >
+                                {day}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={styles.hint}>Chọn số ngày bạn muốn lập kế hoạch</Text>
             </View>
 
             <View style={styles.section}>
@@ -210,7 +237,7 @@ export default function MealPlanGeneratorScreen({ navigation }) {
                 <View style={styles.resultSection}>
                     <Text style={styles.resultTitle}>Kế hoạch của bạn đã sẵn sàng! 🎉</Text>
                     <Text style={styles.resultSubtitle}>
-                        {generatedPlan.days?.length || 7} ngày • {getCaloriesForGoal(selectedGoal)} kcal/ngày
+                        {selectedDays} ngày • {getCaloriesForGoal(selectedGoal)} kcal/ngày
                     </Text>
 
                     <View style={styles.previewContainer}>
@@ -442,5 +469,32 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.border,
         minHeight: 100,
+    },
+    daysContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        justifyContent: 'space-between',
+    },
+    dayButton: {
+        flex: 1,
+        backgroundColor: COLORS.white,
+        paddingVertical: 16,
+        paddingHorizontal: 12,
+        borderRadius: SIZES.borderRadius,
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: COLORS.border,
+    },
+    dayButtonSelected: {
+        backgroundColor: COLORS.accent,
+        borderColor: COLORS.accent,
+    },
+    dayText: {
+        fontSize: SIZES.h4,
+        fontWeight: '600',
+        color: COLORS.text,
+    },
+    dayTextSelected: {
+        color: COLORS.white,
     },
 });
