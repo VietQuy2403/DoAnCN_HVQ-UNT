@@ -20,7 +20,6 @@ export default function CalendarScreen({ navigation }) {
     const [markedDates, setMarkedDates] = useState({});
     const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
     const [showPlanSelector, setShowPlanSelector] = useState(false);
-    const [tempSelectedPlanIndex, setTempSelectedPlanIndex] = useState(0); // Temporary selection
 
     // Fetch meal plans from Convex
     const mealPlans = useQuery(
@@ -30,7 +29,6 @@ export default function CalendarScreen({ navigation }) {
 
     // Mutation to set active meal plan
     const setActiveMealPlan = useMutation(api.userSettings.setActiveMealPlan);
-    const updateTodayTracking = useMutation(api.dailyTracking.updateTodayTracking);
 
     const currentPlan = mealPlans && mealPlans.length > 0 ? mealPlans[selectedPlanIndex] : null;
 
@@ -117,10 +115,7 @@ export default function CalendarScreen({ navigation }) {
                     {mealPlans && mealPlans.length > 1 && (
                         <TouchableOpacity
                             style={styles.planSelectorButton}
-                            onPress={() => {
-                                setTempSelectedPlanIndex(selectedPlanIndex);
-                                setShowPlanSelector(true);
-                            }}
+                            onPress={() => setShowPlanSelector(true)}
                         >
                             <Text style={styles.planSelectorButtonText}>📋 Chọn kế hoạch</Text>
                         </TouchableOpacity>
@@ -276,91 +271,47 @@ export default function CalendarScreen({ navigation }) {
                                     key={plan._id}
                                     style={[
                                         styles.planItem,
-                                        tempSelectedPlanIndex === index && styles.planItemSelected
+                                        selectedPlanIndex === index && styles.planItemSelected
                                     ]}
-                                    onPress={() => setTempSelectedPlanIndex(index)}
+                                    onPress={async () => {
+                                        setSelectedPlanIndex(index);
+                                        setShowPlanSelector(false);
+                                        setSelectedDate('');
+
+                                        // Set this plan as active
+                                        if (user && plan) {
+                                            try {
+                                                await setActiveMealPlan({
+                                                    userId: user.userId,
+                                                    mealPlanId: plan._id,
+                                                });
+                                            } catch (error) {
+                                                console.error('Error setting active meal plan:', error);
+                                            }
+                                        }
+                                    }}
                                 >
                                     <View style={styles.planItemContent}>
-                                        <Text style={[
-                                            styles.planItemTitle,
-                                            tempSelectedPlanIndex === index && styles.planItemTitleSelected
-                                        ]}>
-                                            {plan.title}
-                                        </Text>
-                                        <Text style={[
-                                            styles.planItemDate,
-                                            tempSelectedPlanIndex === index && styles.planItemDateSelected
-                                        ]}>
+                                        <Text style={styles.planItemTitle}>{plan.title}</Text>
+                                        <Text style={styles.planItemDate}>
                                             {formatPlanDate(plan.createdAt)} • {plan.plan?.days?.length || 0} ngày
                                         </Text>
-                                        <Text style={[
-                                            styles.planItemCalories,
-                                            tempSelectedPlanIndex === index && styles.planItemCaloriesSelected
-                                        ]}>
+                                        <Text style={styles.planItemCalories}>
                                             {plan.targetCalories} kcal/ngày
                                         </Text>
                                     </View>
-                                    {tempSelectedPlanIndex === index && (
-                                        <View style={styles.checkmarkContainer}>
-                                            <Text style={styles.planItemCheck}>✓</Text>
-                                        </View>
+                                    {selectedPlanIndex === index && (
+                                        <Text style={styles.planItemCheck}>✓</Text>
                                     )}
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
-                        
-                        <View style={styles.modalButtonsContainer}>
-                            <TouchableOpacity
-                                style={styles.modalCancelButton}
-                                onPress={() => {
-                                    setTempSelectedPlanIndex(selectedPlanIndex);
-                                    setShowPlanSelector(false);
-                                }}
-                            >
-                                <Text style={styles.modalCancelButtonText}>Hủy</Text>
-                            </TouchableOpacity>
-                            
-                            <TouchableOpacity
-                                style={styles.modalConfirmButton}
-                                onPress={async () => {
-                                    const plan = mealPlans[tempSelectedPlanIndex];
-                                    if (!user || !plan) return;
-
-                                    // Set as active plan
-                                    setSelectedPlanIndex(tempSelectedPlanIndex);
-                                    setShowPlanSelector(false);
-                                    setSelectedDate('');
-
-                                    try {
-                                        await setActiveMealPlan({
-                                            userId: user.userId,
-                                            mealPlanId: plan._id,
-                                        });
-
-                                        // Update today's tracking
-                                        if (plan.plan && plan.plan.days && plan.plan.days.length > 0) {
-                                            const dayPlan = plan.plan.days[0];
-                                            if (dayPlan && dayPlan.meals) {
-                                                const meals = dayPlan.meals.map(meal => ({
-                                                    mealType: meal.type,
-                                                    foodName: meal.foods ? meal.foods.map(f => f.name).join(', ') : '',
-                                                    calories: meal.totalCalories || 0,
-                                                    protein: meal.foods ? meal.foods.reduce((sum, f) => sum + (f.protein || 0), 0) : 0,
-                                                    carbs: meal.foods ? meal.foods.reduce((sum, f) => sum + (f.carbs || 0), 0) : 0,
-                                                    fat: meal.foods ? meal.foods.reduce((sum, f) => sum + (f.fat || 0), 0) : 0,
-                                                }));
-
-                                                await updateTodayTracking({ userId: user.userId, meals });
-                                            }
-                                        }
-                                    } catch (error) {
-                                        console.error('Error setting active meal plan:', error);
-                                    }
-                                }}
-                            >
-                                <Text style={styles.modalConfirmButtonText}>✓ Xác nhận</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity
+                            style={styles.modalCloseButton}
+                            onPress={() => setShowPlanSelector(false)}
+                        >
+                            <Text style={styles.modalCloseButtonText}>Đóng</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -572,66 +523,20 @@ const styles = StyleSheet.create({
         color: COLORS.text,
         marginBottom: 4,
     },
-    planItemTitleSelected: {
-        color: COLORS.white,
-    },
     planItemDate: {
         fontSize: SIZES.small,
         color: COLORS.textLight,
         marginBottom: 4,
-    },
-    planItemDateSelected: {
-        color: 'rgba(255,255,255,0.9)',
     },
     planItemCalories: {
         fontSize: SIZES.small,
         color: COLORS.accent,
         fontWeight: '600',
     },
-    planItemCaloriesSelected: {
-        color: COLORS.white,
-    },
-    checkmarkContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
     planItemCheck: {
-        fontSize: 20,
+        fontSize: 24,
         color: COLORS.white,
-        fontWeight: 'bold',
-    },
-    modalButtonsContainer: {
-        flexDirection: 'row',
-        margin: SIZES.padding * 2,
-        gap: 12,
-    },
-    modalCancelButton: {
-        flex: 1,
-        backgroundColor: COLORS.border,
-        padding: SIZES.padding * 1.5,
-        borderRadius: SIZES.borderRadius,
-        alignItems: 'center',
-    },
-    modalCancelButtonText: {
-        color: COLORS.text,
-        fontSize: SIZES.body,
-        fontWeight: '600',
-    },
-    modalConfirmButton: {
-        flex: 2,
-        backgroundColor: COLORS.primary,
-        padding: SIZES.padding * 1.5,
-        borderRadius: SIZES.borderRadius,
-        alignItems: 'center',
-    },
-    modalConfirmButtonText: {
-        color: COLORS.white,
-        fontSize: SIZES.h4,
-        fontWeight: 'bold',
+        marginLeft: 12,
     },
     modalCloseButton: {
         backgroundColor: COLORS.primary,
