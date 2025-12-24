@@ -16,7 +16,7 @@ export const signUp = mutation({
             .first();
 
         if (existingUser) {
-            throw new Error("Email đã được sử dụng");
+            return { success: false, error: "Email đã được sử dụng" };
         }
 
         // Create new user
@@ -27,7 +27,7 @@ export const signUp = mutation({
             createdAt: Date.now(),
         });
 
-        return userId;
+        return { success: true, userId };
     },
 });
 
@@ -44,14 +44,15 @@ export const signIn = query({
             .first();
 
         if (!user) {
-            throw new Error("Email hoặc mật khẩu không đúng");
+            return { success: false, error: "Email hoặc mật khẩu không đúng" };
         }
 
         if (user.passwordHash !== args.passwordHash) {
-            throw new Error("Email hoặc mật khẩu không đúng");
+            return { success: false, error: "Email hoặc mật khẩu không đúng" };
         }
 
         return {
+            success: true,
             userId: user._id,
             email: user.email,
             name: user.name,

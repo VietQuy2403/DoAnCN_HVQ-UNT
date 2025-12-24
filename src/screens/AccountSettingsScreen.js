@@ -31,10 +31,14 @@ export default function AccountSettingsScreen({ navigation }) {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // States for change email
     const [newEmail, setNewEmail] = useState('');
     const [emailPassword, setEmailPassword] = useState('');
+    const [showEmailPassword, setShowEmailPassword] = useState(false);
 
     // States for change name
     const [newName, setNewName] = useState('');
@@ -43,6 +47,16 @@ export default function AccountSettingsScreen({ navigation }) {
     const updateUserName = useMutation(api.accountSettings.updateUserName);
     const updateUserPassword = useMutation(api.accountSettings.updateUserPassword);
     const updateUserEmail = useMutation(api.accountSettings.updateUserEmail);
+
+    const validateEmail = (email) => {
+        const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        return gmailRegex.test(email);
+    };
+
+    const validatePassword = (password) => {
+        const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+        return passwordRegex.test(password);
+    };
 
     const handleChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
@@ -53,8 +67,16 @@ export default function AccountSettingsScreen({ navigation }) {
             Alert.alert('Lỗi', 'Mật khẩu mới không khớp');
             return;
         }
-        if (newPassword.length < 6) {
-            Alert.alert('Lỗi', 'Mật khẩu phải có ít nhất 6 ký tự');
+
+        if (!validatePassword(newPassword)) {
+            Alert.alert(
+                'Lỗi mật khẩu',
+                'Mật khẩu mới phải đáp ứng:\n' +
+                '- Ít nhất 8 ký tự\n' +
+                '- Có ít nhất 1 chữ cái viết hoa\n' +
+                '- Có ít nhất 1 chữ số\n' +
+                '- Có ít nhất 1 ký tự đặc biệt'
+            );
             return;
         }
 
@@ -80,6 +102,11 @@ export default function AccountSettingsScreen({ navigation }) {
     const handleChangeEmail = async () => {
         if (!newEmail || !emailPassword) {
             Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
+            return;
+        }
+
+        if (!validateEmail(newEmail)) {
+            Alert.alert('Lỗi', 'Email phải là địa chỉ Gmail hợp lệ (ví dụ: user@gmail.com)');
             return;
         }
 
@@ -262,30 +289,56 @@ export default function AccountSettingsScreen({ navigation }) {
 
                         {showChangePassword && (
                             <View style={styles.expandedContent}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Mật khẩu hiện tại"
-                                    placeholderTextColor={COLORS.textLight}
-                                    secureTextEntry
-                                    value={currentPassword}
-                                    onChangeText={setCurrentPassword}
-                                />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Mật khẩu mới (tối thiểu 6 ký tự)"
-                                    placeholderTextColor={COLORS.textLight}
-                                    secureTextEntry
-                                    value={newPassword}
-                                    onChangeText={setNewPassword}
-                                />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Xác nhận mật khẩu mới"
-                                    placeholderTextColor={COLORS.textLight}
-                                    secureTextEntry
-                                    value={confirmPassword}
-                                    onChangeText={setConfirmPassword}
-                                />
+                                <View style={styles.passwordContainer}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        placeholder="Mật khẩu hiện tại"
+                                        placeholderTextColor={COLORS.textLight}
+                                        secureTextEntry={!showCurrentPassword}
+                                        value={currentPassword}
+                                        onChangeText={setCurrentPassword}
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    >
+                                        <Text style={styles.eyeIcon}>{showCurrentPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={styles.passwordContainer}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        placeholder="Mật khẩu mới (8+ ký tự, Hoa, Số, @)"
+                                        placeholderTextColor={COLORS.textLight}
+                                        secureTextEntry={!showNewPassword}
+                                        value={newPassword}
+                                        onChangeText={setNewPassword}
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowNewPassword(!showNewPassword)}
+                                    >
+                                        <Text style={styles.eyeIcon}>{showNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={styles.passwordContainer}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        placeholder="Xác nhận mật khẩu mới"
+                                        placeholderTextColor={COLORS.textLight}
+                                        secureTextEntry={!showConfirmPassword}
+                                        value={confirmPassword}
+                                        onChangeText={setConfirmPassword}
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    >
+                                        <Text style={styles.eyeIcon}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                                    </TouchableOpacity>
+                                </View>
                                 <TouchableOpacity
                                     style={[styles.submitButton, loadingPassword && styles.submitButtonDisabled]}
                                     onPress={handleChangePassword}
@@ -331,14 +384,22 @@ export default function AccountSettingsScreen({ navigation }) {
                                     value={newEmail}
                                     onChangeText={setNewEmail}
                                 />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Mật khẩu xác nhận"
-                                    placeholderTextColor={COLORS.textLight}
-                                    secureTextEntry
-                                    value={emailPassword}
-                                    onChangeText={setEmailPassword}
-                                />
+                                <View style={styles.passwordContainer}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        placeholder="Mật khẩu xác nhận"
+                                        placeholderTextColor={COLORS.textLight}
+                                        secureTextEntry={!showEmailPassword}
+                                        value={emailPassword}
+                                        onChangeText={setEmailPassword}
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowEmailPassword(!showEmailPassword)}
+                                    >
+                                        <Text style={styles.eyeIcon}>{showEmailPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                                    </TouchableOpacity>
+                                </View>
                                 <TouchableOpacity
                                     style={[styles.submitButton, loadingEmail && styles.submitButtonDisabled]}
                                     onPress={handleChangeEmail}
@@ -520,6 +581,27 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.border,
         color: COLORS.text,
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.white,
+        borderRadius: SIZES.borderRadius,
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    passwordInput: {
+        flex: 1,
+        padding: SIZES.padding,
+        fontSize: SIZES.body,
+        color: COLORS.text,
+    },
+    eyeButton: {
+        padding: SIZES.padding,
+    },
+    eyeIcon: {
+        fontSize: 20,
     },
     submitButton: {
         backgroundColor: COLORS.primary,
