@@ -22,15 +22,20 @@ export default function HomeScreen({ navigation }) {
     // Fetch real data from Convex
     const profile = useQuery(api.userProfiles.getProfile, user ? { userId: user.userId } : "skip");
     const mealPlans = useQuery(api.mealPlans.getMealPlans, user ? { userId: user.userId } : "skip");
-    const todayTracking = useQuery(api.dailyTracking.getTodayTracking, user ? { userId: user.userId } : "skip");
+    const todayTracking = useQuery(api.dailyTracking.getTodayTracking,
+        user ? { userId: user.userId } : "skip"
+    );
     const activeMealPlanId = useQuery(api.userSettings.getActiveMealPlanId, user ? { userId: user.userId } : "skip");
 
     const initializeTracking = useMutation(api.dailyTracking.initializeTodayTracking);
+    const updateTodayTracking = useMutation(api.dailyTracking.updateTodayTracking);
     const toggleMeal = useMutation(api.dailyTracking.toggleMealConsumed);
 
     // State for recipe modal
-    const [selectedRecipe, setSelectedRecipe] = useState(null);
     const [showRecipeModal, setShowRecipeModal] = useState(false);
+    const [selectedMeal, setSelectedMeal] = useState(null);
+    const [selectedMealIndex, setSelectedMealIndex] = useState(null);
+    const [currentPlanDay, setCurrentPlanDay] = useState({ dayNumber: 1, totalDays: 1, cycleNumber: 1 });
 
     // Get today's meals from meal plan
     const getTodayMeals = () => {
@@ -40,13 +45,13 @@ export default function HomeScreen({ navigation }) {
         let activePlan = null;
         if (activeMealPlanId) {
             activePlan = mealPlans.find(plan => plan._id === activeMealPlanId);
-            console.log('Active meal plan ID:', activeMealPlanId);
-            console.log('Found active plan:', activePlan?.title);
+            // console.log('Active meal plan ID:', activeMealPlanId);
+            // console.log('Found active plan:', activePlan?.title);
         } else {
-            console.log('No active meal plan set, using latest');
+            // console.log('No active meal plan set, using latest');
         }
         const planToUse = activePlan || mealPlans[0];
-        console.log('Using plan:', planToUse?.title);
+        // console.log('Using plan:', planToUse?.title);
 
         if (!planToUse || !planToUse.plan || !planToUse.plan.days) return [];
 
@@ -59,12 +64,31 @@ export default function HomeScreen({ navigation }) {
         // Set to start of day for today
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-        // Calculate day difference (0 = same day as creation, 1 = next day, etc.)
+        // Calculate day difference (0 = same day as creation = Day 1, 1 = next day = Day 2, etc.)
         const dayDiff = Math.floor((todayDate - startDate) / (1000 * 60 * 60 * 24));
 
-        // If plan was created today or in the future, show day 1
-        // Otherwise show the appropriate day
-        const planDayIndex = dayDiff < 0 ? 0 : Math.min(dayDiff, planToUse.plan.days.length - 1);
+        const totalDaysInPlan = planToUse.plan.days.length;
+
+        // CYCLE PLAN: If plan has ended, loop back to Day 1
+        // Example: 7-day plan, dayDiff = 8 → Show Day 2 (8 % 7 = 1)
+        let planDayIndex;
+        let cycleNumber;
+        if (dayDiff < 0) {
+            // Before plan start date → Show Day 1
+            planDayIndex = 0;
+            cycleNumber = 1;
+        } else {
+            // Cycle through the plan using modulo
+            planDayIndex = dayDiff % totalDaysInPlan;
+            cycleNumber = Math.floor(dayDiff / totalDaysInPlan) + 1;
+        }
+
+        // Update current plan day info
+        setCurrentPlanDay({
+            dayNumber: planDayIndex + 1,
+            totalDays: totalDaysInPlan,
+            cycleNumber: cycleNumber
+        });
 
         const dayPlan = planToUse.plan.days[planDayIndex];
         if (!dayPlan || !dayPlan.meals) return [];
@@ -94,15 +118,35 @@ export default function HomeScreen({ navigation }) {
         });
     };
 
-    // Initialize tracking when component mounts
+    // Initialize or update tracking when needed
     useEffect(() => {
-        if (user && !todayTracking && mealPlans && mealPlans.length > 0) {
-            const meals = getTodayMeals();
-            if (meals.length > 0) {
-                initializeTracking({ userId: user.userId, meals });
+        if (!user || !mealPlans || mealPlans.length === 0) return;
+
+        const meals = getTodayMeals();
+        if (meals.length === 0) return;
+
+        // Case 1: No tracking exists for today -> Initialize
+        if (!todayTracking) {
+            initializeTracking({ userId: user.userId, meals });
+            return;
+        }
+
+        // Case 2: Check if tracking meals match current active plan
+        // Compare first meal's foodName to detect plan change
+        if (todayTracking.mealsConsumed && todayTracking.mealsConsumed.length > 0) {
+            const trackingFirstMeal = todayTracking.mealsConsumed[0]?.foodName;
+            const planFirstMeal = meals[0]?.foodName;
+
+            // If meals don't match, it means active plan changed -> Force update
+            if (trackingFirstMeal !== planFirstMeal) {
+                console.log('🔄 Active plan changed, updating tracking...');
+                console.log('   Old meal:', trackingFirstMeal);
+                console.log('   New meal:', planFirstMeal);
+                
+                updateTodayTracking({ userId: user.userId, meals });
             }
         }
-    }, [user, todayTracking, mealPlans]);
+    }, [user, todayTracking, mealPlans, activeMealPlanId]);
 
     const handleToggleMeal = async (mealIndex) => {
         if (user) {
@@ -130,7 +174,8 @@ export default function HomeScreen({ navigation }) {
         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const dayDiff = Math.floor((todayDate - startDate) / (1000 * 60 * 60 * 24));
 
-        const planDayIndex = dayDiff < 0 ? 0 : Math.min(dayDiff, planToUse.plan.days.length - 1);
+        const totalDaysInPlan = planToUse.plan.days.length;
+        const planDayIndex = dayDiff < 0 ? 0 : dayDiff % totalDaysInPlan;
 
         const dayPlan = planToUse.plan.days[planDayIndex];
         if (!dayPlan || !dayPlan.meals || !dayPlan.meals[mealIndex]) return null;
@@ -141,7 +186,8 @@ export default function HomeScreen({ navigation }) {
     const handleMealPress = (mealIndex) => {
         const mealData = getMealRecipe(mealIndex);
         if (mealData && mealData.foods && mealData.foods.length > 0) {
-            setSelectedRecipe(mealData);
+            setSelectedMeal(mealData);
+            setSelectedMealIndex(mealIndex);
             setShowRecipeModal(true);
         }
     };
@@ -276,8 +322,24 @@ export default function HomeScreen({ navigation }) {
                 </View>
 
                 {/* Today's Meals Section */}
-                <View style={styles.mealsSection}>
-                    <Text style={styles.sectionTitle}>Bữa ăn hôm nay</Text>
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <View>
+                            <Text style={styles.sectionTitle}>Bữa ăn hôm nay</Text>
+                            {currentPlanDay.totalDays > 1 && (
+                                <Text style={styles.planDayIndicator}>
+                                    📅 Ngày {currentPlanDay.dayNumber}/{currentPlanDay.totalDays} trong kế hoạch
+                                    {currentPlanDay.cycleNumber > 1 && ` (Lần ${currentPlanDay.cycleNumber})`}
+                                </Text>
+                            )}
+                        </View>
+                        <TouchableOpacity
+                            style={styles.viewAllButton}
+                            onPress={() => navigation.navigate('SavedMealPlans')}
+                        >
+                            <Text style={styles.viewAllText}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     {!mealPlans || mealPlans.length === 0 ? (
                         <View style={styles.emptyState}>
@@ -337,11 +399,11 @@ export default function HomeScreen({ navigation }) {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <ScrollView showsVerticalScrollIndicator={false}>
-                            {selectedRecipe && (
+                            {selectedMeal && (
                                 <>
                                     {/* Modal Header */}
                                     <View style={styles.modalHeader}>
-                                        <Text style={styles.modalTitle}>{selectedRecipe.type}</Text>
+                                        <Text style={styles.modalTitle}>{selectedMeal.type}</Text>
                                         <TouchableOpacity
                                             style={styles.closeButton}
                                             onPress={() => setShowRecipeModal(false)}
@@ -353,15 +415,15 @@ export default function HomeScreen({ navigation }) {
                                     {/* Meal Info */}
                                     <View style={styles.modalMealInfo}>
                                         <Text style={styles.modalMealName}>
-                                            {selectedRecipe.foods.map(f => f.name).join(', ')}
+                                            {selectedMeal.foods.map(f => f.name).join(', ')}
                                         </Text>
                                         <Text style={styles.modalCalories}>
-                                            🔥 {selectedRecipe.totalCalories} kcal
+                                            🔥 {selectedMeal.totalCalories} kcal
                                         </Text>
                                     </View>
 
                                     {/* Foods with Recipes */}
-                                    {selectedRecipe.foods.map((food, foodIndex) => (
+                                    {selectedMeal.foods.map((food, foodIndex) => (
                                         <View key={foodIndex} style={styles.foodSection}>
                                             <Text style={styles.foodTitle}>
                                                 {food.name} ({food.portion})
@@ -427,10 +489,10 @@ export default function HomeScreen({ navigation }) {
                                     ))}
 
                                     {/* Notes */}
-                                    {selectedRecipe.notes && (
+                                    {selectedMeal.notes && (
                                         <View style={styles.notesSection}>
                                             <Text style={styles.notesTitle}>💡 Ghi chú</Text>
-                                            <Text style={styles.notesText}>{selectedRecipe.notes}</Text>
+                                            <Text style={styles.notesText}>{selectedMeal.notes}</Text>
                                         </View>
                                     )}
                                 </>
@@ -534,14 +596,35 @@ const styles = StyleSheet.create({
         color: COLORS.white,
         opacity: 0.9,
     },
-    mealsSection: {
+    section: {
         padding: SIZES.padding,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: SIZES.margin,
     },
     sectionTitle: {
         fontSize: SIZES.h3,
         fontWeight: 'bold',
         color: COLORS.text,
-        marginBottom: SIZES.margin,
+    },
+    planDayIndicator: {
+        fontSize: SIZES.small,
+        color: COLORS.primary,
+        fontWeight: '600',
+        marginTop: 4,
+    },
+    viewAllButton: {
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: SIZES.borderRadius,
+    },
+    viewAllText: {
+        fontSize: SIZES.body,
+        color: COLORS.primary,
+        fontWeight: '600',
     },
     mealCard: {
         flexDirection: 'row',

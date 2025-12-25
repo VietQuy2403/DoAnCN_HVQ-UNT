@@ -16,7 +16,7 @@ import { api } from '../../convex/_generated/api';
 import { COLORS, SIZES, GOALS } from '../constants';
 
 export default function UserSetupScreen({ navigation }) {
-    const { user, signOut } = useAuth();
+    const { user } = useAuth();
     const upsertProfile = useMutation(api.userProfiles.upsertProfile);
 
     const [age, setAge] = useState('');
@@ -50,17 +50,10 @@ export default function UserSetupScreen({ navigation }) {
                 targetWeight: targetWeight ? parseFloat(targetWeight) : undefined,
             });
 
-            // Logout và chuyển về Login
-            await signOut();
+            // Profile đã được tạo, AppNavigator sẽ tự động chuyển đến Main app
             Alert.alert(
                 'Thiết lập thành công!',
-                'Vui lòng đăng nhập lại để tiếp tục',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.replace('Login')
-                    }
-                ]
+                'Chào mừng bạn đến với ứng dụng dinh dưỡng!'
             );
         } catch (error) {
             console.error('Error saving profile:', error);

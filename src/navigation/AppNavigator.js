@@ -102,7 +102,7 @@ function MainTabs() {
           ),
         }}
       />
-      <Tab.Screen
+      {/* <Tab.Screen
         name="ChatbotTab"
         component={ChatbotScreen}
         options={{
@@ -111,7 +111,7 @@ function MainTabs() {
             <Text style={{ fontSize: size }}>🤖</Text>
           ),
         }}
-      />
+      /> */}
     </Tab.Navigator>
   );
 }

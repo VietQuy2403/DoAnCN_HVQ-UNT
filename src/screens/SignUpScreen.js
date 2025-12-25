@@ -40,9 +40,18 @@ export default function SignUpScreen({ navigation }) {
         setLoading(true);
         try {
             await signUp(email, password, name);
-            // Tự động đăng nhập sau khi đăng ký thành công
-            // AppNavigator sẽ tự động chuyển đến UserSetup vì user chưa có profile
-            await signIn(email, password);
+            
+            // Hiển thị thông báo thành công và chuyển về Login
+            Alert.alert(
+                'Đăng ký thành công!', 
+                'Vui lòng đăng nhập để tiếp tục',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => navigation.replace('Login')
+                    }
+                ]
+            );
         } catch (error) {
             Alert.alert('Lỗi', error.message || 'Đã xảy ra lỗi');
         } finally {
