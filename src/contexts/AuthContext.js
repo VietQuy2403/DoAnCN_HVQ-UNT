@@ -47,27 +47,31 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async (email, password, name) => {
     const passwordHash = hashPassword(password);
-    const userId = await signUpMutation({ email, passwordHash, name });
+    const result = await signUpMutation({ email, passwordHash, name });
 
-    // Don't auto-login, just return userId
-    return userId;
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    return result.userId;
   };
 
   const signIn = async (email, password) => {
     const passwordHash = hashPassword(password);
 
-    try {
-      // Clear any existing session first to prevent data mixing
-      await clearSession();
-      setUser(null);
+    // Clear any existing session first to prevent data mixing
+    await clearSession();
+    setUser(null);
 
-      const userData = await convex.query(api.auth.signIn, { email, passwordHash });
-      await saveSession(userData.userId);
-      setUser(userData);
-      return userData;
-    } catch (error) {
-      throw new Error(error.message || 'Đăng nhập thất bại');
+    const result = await convex.query(api.auth.signIn, { email, passwordHash });
+
+    if (!result.success) {
+      throw new Error(result.error);
     }
+
+    await saveSession(result.userId);
+    setUser({ userId: result.userId, email: result.email, name: result.name });
+    return result;
   };
 
   const signOut = async () => {

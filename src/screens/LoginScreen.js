@@ -18,6 +18,7 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -25,12 +26,27 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
+    const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    if (!gmailRegex.test(email)) {
+      Alert.alert('Lỗi', 'Vui lòng sử dụng địa chỉ Gmail hợp lệ');
+      return;
+    }
+
     setLoading(true);
     try {
       await signIn(email, password);
-      // Navigation tự động xảy ra khi user được set
     } catch (error) {
-      Alert.alert('Lỗi', error.message || 'Đã xảy ra lỗi');
+      // Làm sạch thông báo lỗi: chỉ lấy dòng đầu tiên và bỏ các tiền tố debug
+      let errorMessage = error.message || 'Đã xảy ra lỗi';
+
+      if (errorMessage.includes('ConvexError:')) {
+        errorMessage = errorMessage.split('ConvexError:')[1];
+      }
+
+      // Chỉ lấy dòng đầu tiên
+      errorMessage = errorMessage.split('\n')[0].trim();
+
+      Alert.alert('Thông báo', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -57,13 +73,21 @@ export default function LoginScreen({ navigation }) {
           autoCapitalize="none"
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Mật khẩu"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={true}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Mật khẩu"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={[styles.button, loading ? styles.buttonDisabled : null]}
@@ -126,6 +150,26 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.borderRadius,
+    marginBottom: SIZES.margin,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: SIZES.padding,
+    fontSize: SIZES.body,
+  },
+  eyeButton: {
+    padding: SIZES.padding,
+  },
+  eyeIcon: {
+    fontSize: 20,
   },
   button: {
     backgroundColor: COLORS.primary,
